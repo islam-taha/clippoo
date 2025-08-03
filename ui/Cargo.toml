@@ -1,0 +1,23 @@
+[package]
+name = "clippoo-ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gtk4 = "0.7"
+gdk4 = "0.7"
+pango = "0.18"
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "sqlite", "chrono"] }
+tokio = { workspace = true }
+dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+arboard = "3.3"
+
+[[bin]]
+name = "clippoo-ui"
+path = "src/main.rs"

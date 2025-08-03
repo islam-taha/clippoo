@@ -1,0 +1,98 @@
+/* Clippoo GTK4 Styles */
+
+window.clipboard-popup {
+    background-color: rgba(30, 30, 30, 0.98);
+}
+
+.clipboard-popup {
+    background-color: rgba(30, 30, 30, 0.98);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    min-width: 600px;
+    min-height: 600px;
+}
+
+.popup-container {
+    background-color: rgba(25, 25, 25, 0.95);
+    padding: 8px;
+    border-radius: 12px;
+}
+
+.clipboard-list {
+    background-color: rgba(35, 35, 35, 0.9);
+    border: none;
+    padding: 4px;
+}
+
+.clipboard-list row {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin: 2px 4px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.clipboard-list row:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.clipboard-list row:selected {
+    background-color: rgba(100, 150, 255, 0.3);
+    color: white;
+}
+
+.clipboard-row {
+    min-height: 44px;
+}
+
+.index-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.content-label {
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 14px;
+    font-family: monospace;
+    font-weight: 400;
+}
+
+.default-indicator {
+    color: #4CAF50;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+/* Search entry styling */
+.search-entry {
+    background-color: rgba(50, 50, 50, 0.9);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 0 8px 8px 8px;
+    font-size: 14px;
+}
+
+.search-entry:focus {
+    border-color: rgba(100, 150, 255, 0.5);
+    outline: none;
+}
+
+/* Scrollbar styling */
+scrollbar {
+    min-width: 8px;
+    background-color: transparent;
+}
+
+scrollbar slider {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+scrollbar slider:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}

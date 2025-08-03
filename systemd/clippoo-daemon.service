@@ -1,0 +1,25 @@
+[Unit]
+Description=Clippoo Clipboard Manager Daemon
+Documentation=https://github.com/clippoo/clippoo
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/clippoo-daemon
+Restart=on-failure
+RestartSec=5
+Environment="RUST_LOG=info"
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/clippoo
+
+# Resource limits
+MemoryMax=100M
+CPUQuota=10%
+
+[Install]
+WantedBy=default.target
