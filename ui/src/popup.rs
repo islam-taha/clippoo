@@ -197,9 +197,32 @@ impl ClipboardPopup {
         let runtime = self.runtime.clone();
         
         key_controller.connect_key_pressed(move |_, keyval, _, modifiers| {
+            // Check if search is visible to determine behavior
+            let search_is_visible = gtk4::prelude::WidgetExt::is_visible(&search_entry);
+            
             match keyval {
                 gdk::Key::Escape => {
-                    window.close();
+                    if search_is_visible {
+                        // Clear search first
+                        search_entry.set_text("");
+                        search_entry.set_visible(false);
+                        // Restore all entries
+                        filtered_entries.replace(entries.borrow().clone());
+                        // Update display
+                        while let Some(child) = list_box.first_child() {
+                            list_box.remove(&child);
+                        }
+                        let all_entries = entries.borrow();
+                        for (index, entry) in all_entries.iter().enumerate() {
+                            let row = create_row_for_entry(entry, index);
+                            list_box.append(&row);
+                        }
+                        if let Some(first_row) = list_box.row_at_index(0) {
+                            list_box.select_row(Some(&first_row));
+                        }
+                    } else {
+                        window.close();
+                    }
                     glib::Propagation::Stop
                 }
                 gdk::Key::v if modifiers.contains(gdk::ModifierType::SUPER_MASK) && modifiers.contains(gdk::ModifierType::SHIFT_MASK) => {
@@ -305,6 +328,14 @@ impl ClipboardPopup {
                     search_entry.grab_focus();
                     glib::Propagation::Stop
                 }
+                // For any other character key, focus search if it's visible
+                k if search_is_visible && k.to_unicode().is_some() => {
+                    // Refocus search entry and let the key propagate
+                    search_entry.grab_focus();
+                    // Move cursor to end to continue typing
+                    search_entry.set_position(-1);
+                    glib::Propagation::Proceed
+                }
                 _ => glib::Propagation::Proceed,
             }
         });
@@ -395,27 +426,87 @@ impl ClipboardPopup {
             }
         });
         
-        // Handle escape key in search entry
+        // Handle special keys in search entry
         let search_key_controller = EventControllerKey::new();
         let search_entry_clone = self.search_entry.clone();
         let entries_clone = self.entries.clone();
         let filtered_clone = self.filtered_entries.clone();
+        let list_box_for_nav = self.list_box.clone();
         
         search_key_controller.connect_key_pressed(move |_, keyval, _, _| {
-            if keyval == gdk::Key::Escape {
-                // Clear search and hide entry
-                search_entry_clone.set_text("");
-                search_entry_clone.set_visible(false);
-                // Restore all entries
-                filtered_clone.replace(entries_clone.borrow().clone());
-                glib::Propagation::Stop
-            } else {
-                glib::Propagation::Proceed
+            match keyval {
+                gdk::Key::Escape => {
+                    // Clear search and hide entry
+                    search_entry_clone.set_text("");
+                    search_entry_clone.set_visible(false);
+                    // Restore all entries
+                    filtered_clone.replace(entries_clone.borrow().clone());
+                    glib::Propagation::Stop
+                }
+                gdk::Key::Down | gdk::Key::Up => {
+                    // Allow navigation from search field
+                    if let Some(first_row) = list_box_for_nav.row_at_index(0) {
+                        first_row.grab_focus();
+                        if keyval == gdk::Key::Down {
+                            navigate_list(&list_box_for_nav, 1);
+                        }
+                    }
+                    glib::Propagation::Stop
+                }
+                gdk::Key::Return => {
+                    // Allow Enter to select from search field
+                    if let Some(selected) = list_box_for_nav.selected_row() {
+                        selected.activate();
+                    }
+                    glib::Propagation::Stop
+                }
+                _ => glib::Propagation::Proceed
             }
         });
         
         self.search_entry.add_controller(search_key_controller);
     }
+}
+
+fn create_row_for_entry(entry: &ClipboardEntry, index: usize) -> ListBoxRow {
+    let row = ListBoxRow::new();
+    row.add_css_class("clipboard-row");
+    
+    let hbox = Box::new(Orientation::Horizontal, 12);
+    hbox.set_margin_start(12);
+    hbox.set_margin_end(12);
+    hbox.set_margin_top(8);
+    hbox.set_margin_bottom(8);
+    
+    // Index label
+    let index_label = Label::new(Some(&format!("{}.", index + 1)));
+    index_label.add_css_class("index-label");
+    index_label.set_width_request(30);
+    hbox.append(&index_label);
+    
+    // Content label (truncated)
+    let content = if entry.content.len() > 80 {
+        format!("{}...", &entry.content[..80])
+    } else {
+        entry.content.clone()
+    };
+    
+    let content_label = Label::new(Some(&content));
+    content_label.add_css_class("content-label");
+    content_label.set_xalign(0.0);
+    content_label.set_hexpand(true);
+    content_label.set_ellipsize(pango::EllipsizeMode::End);
+    hbox.append(&content_label);
+    
+    // Default indicator
+    if entry.is_default {
+        let default_label = Label::new(Some("●"));
+        default_label.add_css_class("default-indicator");
+        hbox.append(&default_label);
+    }
+    
+    row.set_child(Some(&hbox));
+    row
 }
 
 fn navigate_list(list_box: &ListBox, direction: i32) {
@@ -447,52 +538,43 @@ fn copy_to_clipboard(content: &str) -> Result<()> {
 
 fn spawn_auto_paste() {
     use std::process::Command;
+    use std::thread;
+    use std::time::Duration;
     
-    // Simpler approach: try to detect if we need terminal paste by checking focused window
-    let paste_script = r#"
-sleep 0.2
-
-# Try to get the focused window name using GNOME's tools
-WINDOW_NAME=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'global.display.focus_window.get_title()' 2>/dev/null | grep -o '"[^"]*"' | head -1 | tr -d '"' | tr '[:upper:]' '[:lower:]')
-
-# If that fails, try getting active window process
-if [ -z "$WINDOW_NAME" ]; then
-    # Try to get the active process name
-    ACTIVE_PID=$(gdbus call --session --dest org.gnome.Shell --object-path /org/gnome/Shell --method org.gnome.Shell.Eval 'global.display.focus_window.get_pid()' 2>/dev/null | grep -o '[0-9]*' | head -1)
-    if [ -n "$ACTIVE_PID" ]; then
-        WINDOW_NAME=$(cat /proc/$ACTIVE_PID/comm 2>/dev/null | tr '[:upper:]' '[:lower:]')
-    fi
-fi
-
-# Check if it's likely a terminal based on window title or process name
-case "$WINDOW_NAME" in
-    *terminal*|*term*|*konsole*|*alacritty*|*kitty*|*tilix*|gnome-terminal-server|foot|wezterm)
-        # Terminal - use Ctrl+Shift+V
-        ydotool key ctrl+shift+v
-        ;;
-    *)
-        # Regular application - use Ctrl+V
-        ydotool key ctrl+v
-        ;;
-esac
-"#;
-    
-    // Create a detached process that will survive after the UI closes
-    match Command::new("sh")
-        .arg("-c")
-        .arg(paste_script)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-    {
-        Ok(_) => {
-            info!("Spawned auto-paste process");
+    // Spawn a thread to handle auto-paste after a short delay
+    thread::spawn(|| {
+        // Small delay to ensure window closes and focus returns
+        thread::sleep(Duration::from_millis(200));
+        
+        // Always use Ctrl+Shift+V for paste
+        info!("Executing auto-paste with Ctrl+Shift+V");
+        
+        // Execute ydotool
+        match Command::new("ydotool")
+            .args(&["key", "ctrl+shift+v"])
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    info!("Auto-paste executed successfully");
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    warn!("ydotool failed: {}", stderr);
+                }
+            }
+            Err(e) => {
+                warn!("Failed to execute ydotool: {}. Trying wtype fallback...", e);
+                
+                // Try wtype as fallback
+                if let Err(e) = Command::new("wtype")
+                    .args(&["-M", "ctrl", "-M", "shift", "-P", "v", "-m", "shift", "-m", "ctrl"])
+                    .output() 
+                {
+                    error!("Both ydotool and wtype failed: {}", e);
+                }
+            }
         }
-        Err(e) => {
-            error!("Failed to spawn auto-paste: {}", e);
-        }
-    }
+    });
 }
 
 fn simulate_paste() -> Result<()> {

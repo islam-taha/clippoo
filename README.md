@@ -37,6 +37,9 @@ sudo apt install -y \
 sudo apt install ydotool  # Recommended
 # OR
 sudo apt install wtype
+
+# Optional: For better terminal detection on X11
+sudo apt install xdotool
 ```
 
 #### Fedora:
@@ -50,6 +53,9 @@ sudo dnf install -y \
     
 # For auto-paste:
 sudo dnf install ydotool
+
+# Optional: For better terminal detection on X11
+sudo dnf install xdotool
 ```
 
 #### Arch Linux:
@@ -65,6 +71,9 @@ sudo pacman -S \
 yay -S ydotool-bin
 # OR
 sudo pacman -S wtype
+
+# Optional: For better terminal detection on X11
+sudo pacman -S xdotool
 ```
 
 ## Building
@@ -202,6 +211,7 @@ journalctl --user -u clippoo-daemon -f
 - Install ydotool or wtype
 - For ydotool: ensure you're in the `input` group and ydotoold is running
 - For wtype: should work out of the box on Wayland
+- Note: Clippoo uses Ctrl+Shift+V for paste, which works in most applications including terminals
 
 ### Database location
 The clipboard history is stored at: `~/.local/share/clippoo/clipboard.db`
