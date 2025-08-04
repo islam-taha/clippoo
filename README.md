@@ -1,3 +1,7 @@
+# Disclaimer
+This code was fully AI written, I have only tested it for my use case.
+Just wanted a flycut replica on linux, and Claude code did the rest, use it on your own responsibility!
+
 # Clippoo
 
 A Flycut-style clipboard manager for Linux (Wayland + GNOME), providing persistent clipboard history with a fast, distraction-free UI.
