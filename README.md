@@ -38,7 +38,7 @@ sudo apt install -y \
     pkg-config
     
 # For auto-paste (choose one):
-sudo apt install ydotool  # Recommended
+sudo apt install ydotool ydotoold  # Recommended
 # OR
 sudo apt install wtype
 
@@ -80,7 +80,9 @@ sudo pacman -S wtype
 sudo pacman -S xdotool
 ```
 
-## Building
+## Building and Installation
+
+### Quick Install
 
 1. Clone the repository:
 ```bash
@@ -88,62 +90,85 @@ git clone https://github.com/islam-taha/clippoo.git
 cd clippoo
 ```
 
-2. Build the project:
+2. Install Clippoo (builds, installs binaries, sets up systemd service, and configures keyboard shortcuts):
 ```bash
-cargo build --release
+make install
 ```
 
-3. Install binaries:
+That's it! Clippoo is now installed and running.
+
+### Manual Build Options
+
 ```bash
-mkdir -p ~/.local/bin
-cp target/release/clippoo-daemon ~/.local/bin/
-cp target/release/clippoo-ui ~/.local/bin/
-cp scripts/clippoo-ui.sh ~/.local/bin/
+make build      # Build the project
+make rebuild    # Clean and rebuild
+make test       # Run tests
+make help       # Show all available commands
 ```
 
-## Installation
+### Setting up ydotool for Auto-paste
 
-### 1. Set up the systemd service:
+For auto-paste functionality to work, you need to set up ydotool:
+
+1. **Install ydotool:**
 ```bash
-mkdir -p ~/.config/systemd/user/
-cp systemd/clippoo-daemon.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now clippoo-daemon
+# Ubuntu/Debian
+sudo apt install ydotool
+
+# Fedora
+sudo dnf install ydotool
+
+# Arch
+yay -S ydotool-bin
 ```
 
-### 2. Configure keyboard shortcut (GNOME):
+2. **Set up ydotool daemon:**
 
-#### Option A: Using GNOME Settings GUI
-1. Open Settings → Keyboard → View and Customize Shortcuts
-2. Click "Custom Shortcuts" → "+"
-3. Set:
-   - Name: `Clippoo Clipboard Manager`
-   - Command: `~/.local/bin/clippoo-ui.sh`
-   - Shortcut: `Meta+Shift+V` (Windows/Super key + Shift + V)
-
-#### Option B: Using command line
+First, add your user to the input group:
 ```bash
-gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings \
-    "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/clippoo/']"
-
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/clippoo/ \
-    name 'Clippoo Clipboard Manager'
-
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/clippoo/ \
-    command '/home/$USER/.local/bin/clippoo-ui.sh'
-
-gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/clippoo/ \
-    binding '<Super><Shift>v'
-```
-
-### 3. For ydotool auto-paste setup:
-If using ydotool for auto-paste, you need to set it up:
-```bash
-# Start ydotool daemon
-sudo systemctl enable --now ydotool
-
-# Add your user to the input group (logout/login required)
 sudo usermod -aG input $USER
+```
+
+Then create the ydotool service:
+```bash
+# Create systemd service for ydotool
+sudo tee /etc/systemd/system/ydotoold.service > /dev/null << 'EOF'
+[Unit]
+Description=ydotool daemon
+After=default.target
+
+[Service]
+ExecStart=/usr/bin/ydotoold
+Restart=always
+RestartSec=2
+Environment=PATH=/usr/bin:/usr/local/bin:/bin
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable ydotoold
+sudo systemctl start ydotoold
+```
+
+3. **Logout and login again** for the group changes to take effect.
+
+4. **Verify ydotool is working:**
+```bash
+# Test ydotool
+ydotool type "test"
+```
+
+### Alternative: Using wtype (Wayland only)
+
+If you prefer wtype over ydotool:
+```bash
+# Ubuntu/Debian
+sudo apt install wtype
+
+# No additional setup required
 ```
 
 ## Usage
@@ -158,18 +183,33 @@ sudo usermod -aG input $USER
 
 The selected entry will be automatically pasted into the active application.
 
+## Uninstalling
+
+To completely remove Clippoo:
+```bash
+make uninstall
+```
+
+This will:
+- Stop and disable the daemon service
+- Remove all installed binaries
+- Remove keyboard shortcuts
+- Clean up systemd configuration
+
 ## Testing
 
 Run the test suite:
+```bash
+make test
+```
+
+Or run specific tests:
 ```bash
 # Test database module
 cargo test -p clippoo-daemon database_test
 
 # Test daemon initialization
 cargo test -p clippoo-daemon daemon_test
-
-# Run all tests
-cargo test --workspace
 ```
 
 ## Project Structure
@@ -212,10 +252,26 @@ journalctl --user -u clippoo-daemon -f
 - Run manually to test: `~/.local/bin/clippoo-ui.sh`
 
 ### Auto-paste not working
-- Install ydotool or wtype
-- For ydotool: ensure you're in the `input` group and ydotoold is running
-- For wtype: should work out of the box on Wayland
-- Note: Clippoo uses Ctrl+Shift+V for paste, which works in most applications including terminals
+
+1. **Check if ydotool is installed and running:**
+```bash
+# Check if ydotoold is running
+systemctl status ydotoold
+
+# Check if you're in the input group
+groups | grep input
+```
+
+2. **If ydotool isn't working:**
+   - Make sure you followed the ydotool setup instructions above
+   - Ensure you logged out and back in after adding yourself to the input group
+   - Try running `ydotool type test` to verify it's working
+
+3. **Alternative: Use wtype**
+   - Install wtype: `sudo apt install wtype`
+   - Clippoo will automatically fall back to wtype if ydotool fails
+
+Note: Clippoo uses Ctrl+Shift+V for paste, which works in most applications including terminals
 
 ### Database location
 The clipboard history is stored at: `~/.local/share/clippoo/clipboard.db`
