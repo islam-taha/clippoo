@@ -84,7 +84,7 @@ sudo pacman -S xdotool
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/clippoo.git
+git clone https://github.com/islam-taha/clippoo.git
 cd clippoo
 ```
 

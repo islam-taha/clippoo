@@ -1,6 +1,6 @@
 [Unit]
 Description=Clippoo Clipboard Manager Daemon
-Documentation=https://github.com/clippoo/clippoo
+Documentation=https://github.com/islam-taha/clippoo
 After=graphical-session.target
 
 [Service]
